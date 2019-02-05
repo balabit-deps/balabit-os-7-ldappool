@@ -252,42 +252,32 @@ class ConnectionManager(object):
         # timeout, etc.).  URIs can be delimited by either commas or
         # whitespace.
         for server in re.split('[\s,]+', self.uri):
-            tries = 0
             exc = None
             conn = None
 
-            # trying retry_max times in a row with a fresh connector
-            while tries < self.retry_max and not connected:
-                try:
-                    log.debug('Attempting to create a new connector '
-                              'to %s (attempt %d)', server, tries + 1)
-                    conn = self.connector_cls(server, retry_max=self.retry_max,
-                                              retry_delay=self.retry_delay)
-                    conn.timeout = self.timeout
-                    self._bind(conn, bind, passwd)
-                    connected = True
-                except ldap.INVALID_CREDENTIALS as error:
-                    # Treat this as a hard failure instead of retrying to
-                    # avoid locking out the LDAP account due to successive
-                    # failed bind attempts.  We also don't want to try
-                    # connecting to additional servers if multiple URIs were
-                    # provide, as failed bind attempts may be replicated
-                    # across multiple LDAP servers.
-                    exc = error
-                    log.error('Invalid credentials. Cancelling retry',
-                              exc_info=True)
-                    raise exc
-                except ldap.LDAPError as error:
-                    exc = error
-                    tries += 1
-                    if tries < self.retry_max:
-                        log.info('Failure attempting to create and bind '
-                                 'connector; will retry after %r seconds',
-                                 self.retry_delay, exc_info=True)
-                        time.sleep(self.retry_delay)
-                    else:
-                        log.error('Failure attempting to create and bind '
-                                  'connector', exc_info=True)
+            try:
+                log.debug('Attempting to create a new connector '
+                          'to %s', server)
+                conn = self.connector_cls(server, retry_max=self.retry_max,
+                                          retry_delay=self.retry_delay)
+                conn.timeout = self.timeout
+                self._bind(conn, bind, passwd)
+                connected = True
+            except ldap.INVALID_CREDENTIALS as error:
+                # Treat this as a hard failure instead of retrying to
+                # avoid locking out the LDAP account due to successive
+                # failed bind attempts.  We also don't want to try
+                # connecting to additional servers if multiple URIs were
+                # provide, as failed bind attempts may be replicated
+                # across multiple LDAP servers.
+                exc = error
+                log.error('Invalid credentials. Cancelling retry',
+                          exc_info=True)
+                raise exc
+            except ldap.LDAPError as error:
+                exc = error
+                log.error('Failure attempting to create and bind '
+                          'connector', exc_info=True)
 
             # We successfully connected to one of the servers, so
             # we can just return the connection and stop processing
