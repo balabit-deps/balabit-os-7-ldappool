@@ -222,7 +222,7 @@ class ConnectionManager(object):
                         conn.unbind_s()
                     except Exception:
                         log.debug('Failure attempting to unbind after '
-                                  'timeout; should be harmless', exc_info=True)
+                                  'timeout; should be harmless')
 
                     self._pool.remove(conn)
                     continue
@@ -242,7 +242,7 @@ class ConnectionManager(object):
                         return conn
                     except Exception:
                         log.debug('Removing connection from pool after '
-                                  'failure to rebind', exc_info=True)
+                                  'failure to rebind')
                         self._pool.remove(conn)
 
                 return None
@@ -319,13 +319,12 @@ class ConnectionManager(object):
                 # provide, as failed bind attempts may be replicated
                 # across multiple LDAP servers.
                 exc = error
-                log.error('Invalid credentials. Cancelling retry',
-                          exc_info=True)
+                log.error('Invalid credentials. Cancelling retry')
                 raise exc
             except ldap.LDAPError as error:
                 exc = error
                 log.error('Failure attempting to create and bind '
-                          'connector', exc_info=True)
+                          'connector')
                 self._unreachable_servers.add(server)
 
             # We successfully connected to one of the servers, so
@@ -395,7 +394,7 @@ class ConnectionManager(object):
         except ldap.LDAPError:
             # avoid error on invalid state
             log.debug('Failure attempting to unbind on release; '
-                      'should be harmless', exc_info=True)
+                      'should be harmless')
 
     @contextmanager
     def connection(self, bind=None, passwd=None):
@@ -462,7 +461,7 @@ class ConnectionManager(object):
                 except ldap.LDAPError:
                     # invalid state
                     log.debug('Failure attempting to unbind on purge; '
-                              'should be harmless', exc_info=True)
+                              'should be harmless')
                 self._pool.remove(conn)
 
     def __str__(self):
