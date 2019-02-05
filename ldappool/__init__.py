@@ -81,6 +81,36 @@ class BackendError(Exception):
         Exception.__init__(self, msg)
 
 
+class LockedTTLSet:
+    def __init__(self, time_to_live=120):
+        self._ttl = time_to_live
+        self._contents = {}
+        self._lock = RLock()
+
+    def contains(self, key):
+        with self._lock:
+            if key in self._contents:
+                inserted_at = self._contents[key]
+                if inserted_at + self._ttl < time.monotonic():
+                    del self._contents[key]
+                    return False
+                else:
+                    return True
+            return False
+
+    def add(self, key):
+        with self._lock:
+            self._contents[key] = time.monotonic()
+
+    def clear(self):
+        with self._lock:
+            self._contents = {}
+
+    def __len__(self):
+        with self._lock:
+            return len(self._contents)
+
+
 class StateConnector(ReconnectLDAPObject):
     """Just remembers who is connected, and if connected."""
 
@@ -150,13 +180,15 @@ class ConnectionManager(object):
     def __init__(self, uri, bind=None, passwd=None, size=10, retry_max=3,
                  retry_delay=.1, use_tls=False, timeout=-1,
                  connector_cls=StateConnector, use_pool=True,
-                 max_lifetime=600, max_pool_full_retries=3):
+                 max_lifetime=600, max_pool_full_retries=3,
+                 unreachable_server_ttl=120):
         self._pool = []
         self.size = size
         self.retry_max = retry_max
         self.retry_delay = retry_delay
         self.uri = uri
         self._servers = re.split('[\s,]+', self.uri)
+        self._unreachable_servers = LockedTTLSet(unreachable_server_ttl)
         self.bind = bind
         self.passwd = passwd
         self._pool_lock = RLock()
@@ -256,6 +288,14 @@ class ConnectionManager(object):
             exc = None
             conn = None
 
+            if len(self._unreachable_servers) == len(self._servers):
+                log.error('All servers became unreachable, re-setting all to reachable state')
+                self._unreachable_servers.clear()
+
+            if self._unreachable_servers.contains(server):
+                log.debug('Skipping known unreachable server %s', server)
+                continue
+
             try:
                 log.debug('Attempting to create a new connector '
                           'to %s', server)
@@ -279,6 +319,7 @@ class ConnectionManager(object):
                 exc = error
                 log.error('Failure attempting to create and bind '
                           'connector', exc_info=True)
+                self._unreachable_servers.add(server)
 
             # We successfully connected to one of the servers, so
             # we can just return the connection and stop processing
