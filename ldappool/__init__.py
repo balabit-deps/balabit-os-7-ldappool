@@ -150,7 +150,7 @@ class ConnectionManager(object):
     def __init__(self, uri, bind=None, passwd=None, size=10, retry_max=3,
                  retry_delay=.1, use_tls=False, timeout=-1,
                  connector_cls=StateConnector, use_pool=True,
-                 max_lifetime=600):
+                 max_lifetime=600, max_pool_full_retries=3):
         self._pool = []
         self.size = size
         self.retry_max = retry_max
@@ -164,6 +164,7 @@ class ConnectionManager(object):
         self.connector_cls = connector_cls
         self.use_pool = use_pool
         self.max_lifetime = max_lifetime
+        self.max_pool_full_retries = max_pool_full_retries
 
     def __len__(self):
         return len(self._pool)
@@ -370,7 +371,7 @@ class ConnectionManager(object):
         """
         tries = 0
         conn = None
-        while tries < self.retry_max:
+        while tries < self.max_pool_full_retries:
             try:
                 conn = self._get_connection(bind, passwd)
             except MaxConnectionReachedError:
