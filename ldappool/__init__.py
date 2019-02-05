@@ -156,6 +156,7 @@ class ConnectionManager(object):
         self.retry_max = retry_max
         self.retry_delay = retry_delay
         self.uri = uri
+        self._servers = re.split('[\s,]+', self.uri)
         self.bind = bind
         self.passwd = passwd
         self._pool_lock = RLock()
@@ -251,7 +252,7 @@ class ConnectionManager(object):
         # each one in turn in case of connection failures (server down,
         # timeout, etc.).  URIs can be delimited by either commas or
         # whitespace.
-        for server in re.split('[\s,]+', self.uri):
+        for server in self._servers:
             exc = None
             conn = None
 
