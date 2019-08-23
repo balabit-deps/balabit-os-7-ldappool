@@ -261,8 +261,8 @@ class ConnectionManager(object):
         if bind is None and not self.use_tls:
             try:
                 conn.whoami_s()
-            except ldap.PROTOCOL_ERROR:
-                # Some servers don't support the WHOAMI extended operations
+            except (ldap.PROTOCOL_ERROR, ldap.INSUFFICIENT_ACCESS):
+                # Some servers don't support the WHOAMI extended operation or it is disabled by access control.
                 pass
 
         conn.active = True
